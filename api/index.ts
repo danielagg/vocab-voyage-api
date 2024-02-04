@@ -5,6 +5,12 @@ export default async function handler(
   request: VercelRequest,
   response: VercelResponse
 ) {
+  if (!request.url) return response.status(400);
+
+  const url = new URL(request.url, `http://${request.headers.host}`);
+  const { searchParams } = url;
+  const idToExclude = searchParams.get("exclude");
+
   const knex = Knex({
     client: "pg",
     connection: {
@@ -16,10 +22,16 @@ export default async function handler(
     },
   });
 
-  const result = await knex("lang_cards.LanguageCard")
+  let query = knex("lang_cards.LanguageCard")
     .select("id", "englishTranslations", "dutch")
     .orderByRaw("RANDOM()")
     .limit(1);
+
+  if (idToExclude) {
+    query = query.whereNot("id", idToExclude);
+  }
+
+  const result = await query;
 
   await knex.destroy();
 
